@@ -2,6 +2,8 @@ import math
 
 import numpy as np
 
+from config import settings
+
 
 def _normalize(vector):
     norm = np.linalg.norm(vector)
@@ -13,13 +15,13 @@ def _normalize(vector):
 class Camera:
     def __init__(
         self,
-        position=(0.0, 0.0, 3.0),
-        up=(0.0, 1.0, 0.0),
-        yaw=-90.0,
-        pitch=0.0,
-        movement_speed=4.0,
-        mouse_sensitivity=0.1,
-        zoom=45.0,
+        position=settings.CAMERA_START_POSITION,
+        up=settings.CAMERA_WORLD_UP,
+        yaw=settings.CAMERA_YAW,
+        pitch=settings.CAMERA_PITCH,
+        movement_speed=settings.CAMERA_SPEED,
+        mouse_sensitivity=settings.CAMERA_MOUSE_SENSITIVITY,
+        zoom=settings.CAMERA_ZOOM,
     ):
         self.position = np.array(position, dtype=np.float32)
         self.world_up = np.array(up, dtype=np.float32)
@@ -53,22 +55,18 @@ class Camera:
     def process_mouse_movement(self, xoffset, yoffset, constrain_pitch=True):
         xoffset *= self.mouse_sensitivity
         yoffset *= self.mouse_sensitivity
-
         self.process_look_step(xoffset, yoffset, constrain_pitch)
 
     def process_look_step(self, yaw_offset=0.0, pitch_offset=0.0, constrain_pitch=True):
         self.yaw += yaw_offset
         self.pitch += pitch_offset
-
         if constrain_pitch:
             self.pitch = max(-89.0, min(89.0, self.pitch))
-
         self._update_camera_vectors()
 
     def _update_camera_vectors(self):
         yaw_radians = math.radians(self.yaw)
         pitch_radians = math.radians(self.pitch)
-
         front = np.array(
             [
                 math.cos(yaw_radians) * math.cos(pitch_radians),
@@ -77,7 +75,6 @@ class Camera:
             ],
             dtype=np.float32,
         )
-
         self.front = _normalize(front)
         self.right = _normalize(np.cross(self.front, self.world_up))
         self.up = _normalize(np.cross(self.right, self.front))
@@ -94,5 +91,4 @@ class Camera:
         view[0, 3] = -np.dot(right, position)
         view[1, 3] = -np.dot(camera_up, position)
         view[2, 3] = np.dot(forward, position)
-
         return view.astype(np.float32)
