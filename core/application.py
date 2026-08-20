@@ -29,6 +29,7 @@ class Application:
     def __init__(self):
         self.show_triangle = False
         self.last_frame = 0.0
+        self.drag_start_position = None
 
         glfw.set_error_callback(self._glfw_error_callback)
         if not glfw.init():
@@ -87,6 +88,8 @@ class Application:
 
     def run(self):
         while not self.window.should_close():
+            glfw.poll_events()
+
             current_frame = glfw.get_time()
             delta_time = current_frame - self.last_frame
             self.last_frame = current_frame
@@ -97,7 +100,6 @@ class Application:
             self._render()
 
             self.window.swap_buffers()
-            glfw.poll_events()
             self.input.end_frame()
 
         glfw.terminate()
@@ -123,24 +125,45 @@ class Application:
 
         if self.show_triangle:
             self.camera_controller.end_movement_drag()
+            self.camera_controller.end_look_drag()
             return
 
         xpos, ypos = self.input.get_mouse_position(self.window.handle)
+        width, height = self.window.width, self.window.height
 
         if self.input.is_mouse_button_pressed(glfw.MOUSE_BUTTON_LEFT):
-            if not self.camera_controller.begin_movement_drag(xpos, ypos, self.window.width, self.window.height):
-                action = self.camera_controller.hit_test_look_controls(xpos, ypos, self.window.width, self.window.height)
+            if self.camera_controller.begin_movement_drag(xpos, ypos, width, height):
+                self.drag_start_position = self.camera.position.copy()
+            else:
+                action = self.camera_controller.hit_test_zoom_controls(xpos, ypos, width, height)
                 if action is not None:
-                    self._handle_look_or_zoom_action(action)
+                    self._handle_zoom_action(action)
+
+        if self.input.is_mouse_button_pressed(glfw.MOUSE_BUTTON_RIGHT):
+            self.camera_controller.begin_look_drag(xpos, ypos, width, height)
 
         if self.input.is_mouse_button_down(glfw.MOUSE_BUTTON_LEFT) and self.camera_controller.movement_active:
-            joystick_x, joystick_y = self.camera_controller.update_movement_drag(xpos, ypos, self.window.width, self.window.height)
+            joystick_x, joystick_y = self.camera_controller.update_movement_drag(xpos, ypos, width, height)
             if joystick_x != 0.0 or joystick_y != 0.0:
                 self.camera.move_analog(joystick_x, joystick_y, delta_time)
                 self._clamp_camera()
 
+        if self.input.is_mouse_button_down(glfw.MOUSE_BUTTON_RIGHT) and self.camera_controller.look_active:
+            look_x, look_y = self.camera_controller.update_look_drag(xpos, ypos, width, height)
+            if look_x != 0.0 or look_y != 0.0:
+                self.camera.rotate(
+                    yaw_offset=look_x * settings.CAMERA_LOOK_SPEED * delta_time,
+                    pitch_offset=look_y * settings.CAMERA_LOOK_SPEED * delta_time,
+                )
+
         if self.input.is_mouse_button_released(glfw.MOUSE_BUTTON_LEFT):
+            if self.camera_controller.movement_active and self.drag_start_position is not None:
+                print(f"Joystick move: {self.drag_start_position} -> {self.camera.position}")
+            self.drag_start_position = None
             self.camera_controller.end_movement_drag()
+
+        if self.input.is_mouse_button_released(glfw.MOUSE_BUTTON_RIGHT):
+            self.camera_controller.end_look_drag()
 
     def _render(self):
         self.renderer.clear()
@@ -153,31 +176,13 @@ class Application:
         layout = self.camera_controller.get_layout(self.window.width, self.window.height)
         self.renderer.render_ui_elements(layout["elements"], (self.window.width, self.window.height))
 
-    def _handle_look_or_zoom_action(self, action):
-        old_yaw = self.camera.yaw
-        old_pitch = self.camera.pitch
+    def _handle_zoom_action(self, action):
         old_zoom = self.camera.zoom
-
-        if action == "LOOK_UP":
-            self.camera.rotate(pitch_offset=settings.CAMERA_LOOK_STEP)
-        elif action == "LOOK_DOWN":
-            self.camera.rotate(pitch_offset=-settings.CAMERA_LOOK_STEP)
-        elif action == "LOOK_LEFT":
-            self.camera.rotate(yaw_offset=-settings.CAMERA_LOOK_STEP)
-        elif action == "LOOK_RIGHT":
-            self.camera.rotate(yaw_offset=settings.CAMERA_LOOK_STEP)
-        elif action == "ZOOM_IN":
+        if action == "ZOOM_IN":
             self.camera.adjust_zoom(-settings.CAMERA_ZOOM_STEP)
         elif action == "ZOOM_OUT":
             self.camera.adjust_zoom(settings.CAMERA_ZOOM_STEP)
-
-        print(
-            f"{action}: "
-            f"Yaw {old_yaw:.1f} -> {self.camera.yaw:.1f}, "
-            f"Pitch {old_pitch:.1f} -> {self.camera.pitch:.1f}, "
-            f"Zoom {old_zoom:.1f} -> {self.camera.zoom:.1f}, "
-            f"Front {self.camera.front}"
-        )
+        print(f"{action}: Zoom {old_zoom:.1f} -> {self.camera.zoom:.1f}")
 
     def _clamp_camera(self):
         self.camera.position[0] = np.clip(self.camera.position[0], -settings.CAMERA_CLAMP_XZ, settings.CAMERA_CLAMP_XZ)
@@ -189,9 +194,9 @@ class Application:
         print("------------------------")
         print("Controls:")
         print("W A S D - Move")
-        print("Mouse - Drag Move Joystick / Click Look / Zoom")
-        print("Move Joystick - Walk Around")
-        print("Look Pad - Look Around")
+        print("Left Drag Joystick - Walk Around")
+        print("Right Drag Joystick - Look Around")
+        print("[-] [+] - Zoom Out / Zoom In")
         print("ESC - Exit")
         print("T - Toggle Triangle Test")
 
