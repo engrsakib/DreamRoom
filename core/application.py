@@ -12,6 +12,7 @@ from lighting.spot_light import SpotLight
 from objects.bed import Bed
 from objects.chair import Chair
 from objects.coffee_cup import CoffeeCup
+from objects.glass_window import GlassWindow
 from objects.lamp import Lamp
 from objects.reading_table import ReadingTable
 from objects.room import Room
@@ -63,8 +64,10 @@ class Application:
     def _build_scene(self):
         scene = Scene()
         table_lamp = TableLamp(self.cylinder_mesh, self.frustum_mesh)
+        glass_window = GlassWindow(self.cube_mesh)
 
         scene.add(Room(self.cube_mesh))
+        scene.add(glass_window)
         scene.add(Bed(self.cube_mesh))
         scene.add(ReadingTable(self.cube_mesh))
         scene.add(Chair(self.cube_mesh))
@@ -92,6 +95,13 @@ class Application:
             settings.LAMP_LIGHT_DIFFUSE,
             settings.LAMP_LIGHT_SPECULAR,
         )
+        scene.window_light = PointLight(
+            settings.WINDOW_LIGHT_POSITION,
+            *settings.WINDOW_LIGHT_ATTENUATION,
+            settings.WINDOW_LIGHT_AMBIENT,
+            settings.WINDOW_LIGHT_DIFFUSE,
+            settings.WINDOW_LIGHT_SPECULAR,
+        )
         scene.spot_light = SpotLight(
             tuple(float(v) for v in self.camera.position),
             tuple(float(v) for v in self.camera.front),
@@ -105,6 +115,9 @@ class Application:
         scene.lamp_fixture = table_lamp
         scene.add_emissive(Lamp(self.cylinder_mesh))
         scene.add_emissive(table_lamp.bulb)
+        for panel in glass_window.exterior_panels:
+            scene.add_emissive(panel)
+        scene.add_transparent(glass_window.glass)
         return scene
 
     def run(self):

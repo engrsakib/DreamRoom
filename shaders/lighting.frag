@@ -50,6 +50,7 @@ uniform vec3 objectColor;
 uniform vec3 viewPos;
 uniform float specularStrength;
 uniform float shininess;
+uniform float objectAlpha;
 
 uniform int useTiles;
 uniform float tileSize;
@@ -63,6 +64,7 @@ uniform sampler2D lampShadowMap;
 uniform DirLight dirLight;
 uniform PointLight pointLight;
 uniform PointLight lampLight;
+uniform PointLight windowLight;
 uniform SpotLight spotLight;
 
 // Derives tile coordinates from world position by projecting along the dominant
@@ -217,7 +219,18 @@ void main()
     vec3 result = calculateDirectionalLight(dirLight, norm, viewDir, surface);
     result += calculatePointLight(pointLight, norm, FragPos, viewDir, surface, mainShadow);
     result += calculatePointLight(lampLight, norm, FragPos, viewDir, surface, lampShadow);
+    result += calculatePointLight(windowLight, norm, FragPos, viewDir, surface, 0.0);
     result += calculateSpotLight(spotLight, norm, FragPos, viewDir, surface);
 
-    FragColor = vec4(result, 1.0);
+    // Glass turns more reflective at grazing angles, so fade opacity with the
+    // viewing angle instead of using one flat transparency value.
+    float alpha = objectAlpha;
+    if (objectAlpha < 1.0)
+    {
+        float fresnel = pow(1.0 - max(dot(norm, viewDir), 0.0), 3.0);
+        alpha = clamp(objectAlpha + fresnel * (1.0 - objectAlpha), 0.0, 1.0);
+        result += vec3(0.28, 0.32, 0.38) * fresnel;
+    }
+
+    FragColor = vec4(result, alpha);
 }

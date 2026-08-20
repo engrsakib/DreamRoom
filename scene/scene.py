@@ -4,8 +4,10 @@ class Scene:
         self.directional_light = None
         self.point_light = None
         self.lamp_light = None
+        self.window_light = None
         self.spot_light = None
         self.emissive_objects = []
+        self.transparent_objects = []
         self.lamp_fixture = None
 
     def add(self, obj):
@@ -13,6 +15,9 @@ class Scene:
 
     def add_emissive(self, obj):
         self.emissive_objects.append(obj)
+
+    def add_transparent(self, obj):
+        self.transparent_objects.append(obj)
 
     def update(self, delta_time):
         _ = delta_time

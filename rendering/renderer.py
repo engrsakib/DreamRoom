@@ -4,23 +4,32 @@ import math
 import numpy as np
 from OpenGL.GL import (
     GL_ARRAY_BUFFER,
+    GL_BACK,
+    GL_BLEND,
     GL_COLOR_BUFFER_BIT,
+    GL_CULL_FACE,
     GL_DEPTH_BUFFER_BIT,
     GL_DEPTH_TEST,
     GL_DYNAMIC_DRAW,
     GL_FALSE,
     GL_FLOAT,
+    GL_ONE_MINUS_SRC_ALPHA,
+    GL_SRC_ALPHA,
     GL_TEXTURE0,
     GL_TEXTURE1,
     GL_TEXTURE_2D,
     GL_TRIANGLES,
+    GL_TRUE,
     glActiveTexture,
     glBindBuffer,
     glBindTexture,
     glBindVertexArray,
+    glBlendFunc,
     glBufferData,
     glClear,
     glClearColor,
+    glCullFace,
+    glDepthMask,
     glDisable,
     glDrawArrays,
     glEnable,
@@ -137,6 +146,29 @@ class Renderer:
                 self.lamp_shader.set_mat4("model", emissive.get_model_matrix())
                 emissive.mesh.draw()
 
+        self._render_transparent(scene)
+
+    def _render_transparent(self, scene):
+        if not scene.transparent_objects:
+            return
+
+        # Blended surfaces come last and keep the depth buffer read-only so the
+        # opaque geometry behind them stays visible. Back faces are culled so a
+        # pane contributes a single blended layer instead of two.
+        self.lighting_shader.use()
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        glEnable(GL_CULL_FACE)
+        glCullFace(GL_BACK)
+        glDepthMask(GL_FALSE)
+
+        for obj in scene.transparent_objects:
+            self.draw_object(obj, None)
+
+        glDepthMask(GL_TRUE)
+        glDisable(GL_CULL_FACE)
+        glDisable(GL_BLEND)
+
     def render_ui_elements(self, elements, screen_size):
         glDisable(GL_DEPTH_TEST)
         for element in elements:
@@ -156,6 +188,7 @@ class Renderer:
             self.lighting_shader.set_float("shininess", obj.material.shininess)
             self.lighting_shader.set_int("useTiles", 1 if obj.material.tiled else 0)
             self.lighting_shader.set_float("tileSize", obj.material.tile_size)
+            self.lighting_shader.set_float("objectAlpha", obj.material.alpha)
             obj.mesh.draw()
 
         for child in obj.children:
@@ -199,6 +232,15 @@ class Renderer:
         self.lighting_shader.set_vec3("lampLight.ambient", l.ambient)
         self.lighting_shader.set_vec3("lampLight.diffuse", l.diffuse)
         self.lighting_shader.set_vec3("lampLight.specular", l.specular)
+
+        w = scene.window_light
+        self.lighting_shader.set_vec3("windowLight.position", w.position)
+        self.lighting_shader.set_float("windowLight.constant", w.constant)
+        self.lighting_shader.set_float("windowLight.linear", w.linear)
+        self.lighting_shader.set_float("windowLight.quadratic", w.quadratic)
+        self.lighting_shader.set_vec3("windowLight.ambient", w.ambient)
+        self.lighting_shader.set_vec3("windowLight.diffuse", w.diffuse)
+        self.lighting_shader.set_vec3("windowLight.specular", w.specular)
 
         s = scene.spot_light
         self.lighting_shader.set_vec3("spotLight.position", s.position)

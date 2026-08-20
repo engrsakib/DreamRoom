@@ -8,3 +8,4 @@ class Material:
     shininess: float = 32.0
     tiled: bool = False
     tile_size: float = 1.0
+    alpha: float = 1.0
