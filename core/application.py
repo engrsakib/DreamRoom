@@ -159,11 +159,13 @@ class Application:
 
         if self.show_triangle:
             self.camera_controller.end_movement_drag()
-            self.camera_controller.end_look_drag()
+            self.camera_controller.end_look()
             return
 
         xpos, ypos = self.input.get_mouse_position(self.window.handle)
         width, height = self.window.width, self.window.height
+        left_down = self.input.is_mouse_button_down(glfw.MOUSE_BUTTON_LEFT)
+        right_down = self.input.is_mouse_button_down(glfw.MOUSE_BUTTON_RIGHT)
 
         if self.input.is_mouse_button_pressed(glfw.MOUSE_BUTTON_LEFT):
             if self.camera_controller.begin_movement_drag(xpos, ypos, width, height):
@@ -172,23 +174,23 @@ class Application:
                 action = self.camera_controller.hit_test_zoom_controls(xpos, ypos, width, height)
                 if action is not None:
                     self._handle_zoom_action(action)
+                else:
+                    self.camera_controller.begin_look(xpos, ypos, width, height)
 
+        # The right button looks from anywhere, including on top of the joystick.
         if self.input.is_mouse_button_pressed(glfw.MOUSE_BUTTON_RIGHT):
-            self.camera_controller.begin_look_drag(xpos, ypos, width, height)
+            self.camera_controller.begin_look(xpos, ypos, width, height, over_controls=True)
 
-        if self.input.is_mouse_button_down(glfw.MOUSE_BUTTON_LEFT) and self.camera_controller.movement_active:
+        if left_down and self.camera_controller.movement_active:
             joystick_x, joystick_y = self.camera_controller.update_movement_drag(xpos, ypos, width, height)
             if joystick_x != 0.0 or joystick_y != 0.0:
                 self.camera.move_analog(joystick_x, joystick_y, delta_time)
                 self._clamp_camera()
 
-        if self.input.is_mouse_button_down(glfw.MOUSE_BUTTON_RIGHT) and self.camera_controller.look_active:
-            look_x, look_y = self.camera_controller.update_look_drag(xpos, ypos, width, height)
+        if self.camera_controller.look_active:
+            look_x, look_y = self.camera_controller.update_look(xpos, ypos)
             if look_x != 0.0 or look_y != 0.0:
-                self.camera.rotate(
-                    yaw_offset=look_x * settings.CAMERA_LOOK_SPEED * delta_time,
-                    pitch_offset=look_y * settings.CAMERA_LOOK_SPEED * delta_time,
-                )
+                self.camera.process_mouse_movement(look_x, look_y)
 
         if self.input.is_mouse_button_released(glfw.MOUSE_BUTTON_LEFT):
             if self.camera_controller.movement_active and self.drag_start_position is not None:
@@ -196,8 +198,8 @@ class Application:
             self.drag_start_position = None
             self.camera_controller.end_movement_drag()
 
-        if self.input.is_mouse_button_released(glfw.MOUSE_BUTTON_RIGHT):
-            self.camera_controller.end_look_drag()
+        if not left_down and not right_down:
+            self.camera_controller.end_look()
 
     def _render(self):
         if self.show_triangle:
@@ -232,7 +234,8 @@ class Application:
         print("Controls:")
         print("W A S D - Move")
         print("Left Drag Joystick - Walk Around")
-        print("Right Drag Joystick - Look Around")
+        print("Left Drag Anywhere Else - Look Around (full 360)")
+        print("Right Drag - Look Around (works over the joystick too)")
         print("[-] [+] - Zoom Out / Zoom In")
         print("ESC - Exit")
         print("T - Toggle Triangle Test")

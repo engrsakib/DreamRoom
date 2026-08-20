@@ -8,7 +8,7 @@ class CameraControllerUI:
         self.movement_active = False
         self.look_active = False
         self.movement_vector = (0.0, 0.0)
-        self.look_vector = (0.0, 0.0)
+        self.last_look_position = None
         self.knob_offset = (0.0, 0.0)
 
     def get_layout(self, width, height):
@@ -50,29 +50,36 @@ class CameraControllerUI:
         self.movement_vector = (0.0, 0.0)
         self._release_knob()
 
-    def begin_look_drag(self, xpos, ypos, width, height):
-        if not self._inside_joystick(xpos, ypos, width, height):
+    def begin_look(self, xpos, ypos, width, height, over_controls=False):
+        """Start a free-look drag. Returns False when the press landed on the UI."""
+        if not over_controls and self._inside_controls(xpos, ypos, width, height):
             return False
         self.look_active = True
-        self.update_look_drag(xpos, ypos, width, height)
+        self.last_look_position = (xpos, ypos)
         return True
 
-    def update_look_drag(self, xpos, ypos, width, height):
-        if not self.look_active:
+    def update_look(self, xpos, ypos):
+        """Cursor travel since the last frame, in pixels, with y flipped to match pitch."""
+        if not self.look_active or self.last_look_position is None:
             return 0.0, 0.0
-        self.look_vector = self._drag_vector(xpos, ypos, width, height)
-        return self.look_vector
+        last_x, last_y = self.last_look_position
+        self.last_look_position = (xpos, ypos)
+        return xpos - last_x, last_y - ypos
 
-    def end_look_drag(self):
+    def end_look(self):
         self.look_active = False
-        self.look_vector = (0.0, 0.0)
-        self._release_knob()
+        self.last_look_position = None
 
     def hit_test_zoom_controls(self, xpos, ypos, width, height):
         for action, (x, y, w, h) in self.get_layout(width, height)["zoom_regions"].items():
             if x <= xpos <= x + w and y <= ypos <= y + h:
                 return action
         return None
+
+    def _inside_controls(self, xpos, ypos, width, height):
+        if self._inside_joystick(xpos, ypos, width, height):
+            return True
+        return self.hit_test_zoom_controls(xpos, ypos, width, height) is not None
 
     def _inside_joystick(self, xpos, ypos, width, height):
         layout = self.get_layout(width, height)
@@ -100,12 +107,11 @@ class CameraControllerUI:
         return vector_x, vector_y
 
     def _release_knob(self):
-        if not self.movement_active and not self.look_active:
+        if not self.movement_active:
             self.knob_offset = (0.0, 0.0)
 
     def _build_elements(self, center_x, center_y, radius, minus_rect, plus_rect):
-        dragging = self.movement_active or self.look_active
-        knob_color = settings.JOYSTICK_ACTIVE_COLOR if dragging else settings.JOYSTICK_CENTER_COLOR
+        knob_color = settings.JOYSTICK_ACTIVE_COLOR if self.movement_active else settings.JOYSTICK_CENTER_COLOR
 
         elements = [
             {"vertices": self._circle(center_x, center_y, radius * 1.18, 36), "color": settings.JOYSTICK_BASE_COLOR},

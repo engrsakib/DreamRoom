@@ -72,14 +72,14 @@ class Camera:
         self.rotate(xoffset, yoffset, constrain_pitch)
 
     def rotate(self, yaw_offset=0.0, pitch_offset=0.0, constrain_pitch=True):
-        self.yaw += yaw_offset
+        # Yaw wraps so it can spin indefinitely without the angle growing large
+        # enough to lose precision; pitch is clamped short of vertical so the
+        # front vector never becomes parallel to world up.
+        self.yaw = (self.yaw + yaw_offset) % 360.0
         self.pitch += pitch_offset
         if constrain_pitch:
-            self.pitch = max(-89.0, min(89.0, self.pitch))
+            self.pitch = max(settings.CAMERA_MIN_PITCH, min(settings.CAMERA_MAX_PITCH, self.pitch))
         self._update_camera_vectors()
-
-    def process_look_step(self, yaw_offset=0.0, pitch_offset=0.0, constrain_pitch=True):
-        self.rotate(yaw_offset, pitch_offset, constrain_pitch)
 
     def adjust_zoom(self, zoom_delta):
         self.zoom += zoom_delta
