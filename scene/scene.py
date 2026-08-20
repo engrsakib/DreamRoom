@@ -6,6 +6,7 @@ class Scene:
         self.lamp_light = None
         self.spot_light = None
         self.emissive_objects = []
+        self.lamp_fixture = None
 
     def add(self, obj):
         self.objects.append(obj)

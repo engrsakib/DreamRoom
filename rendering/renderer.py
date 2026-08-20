@@ -10,8 +10,13 @@ from OpenGL.GL import (
     GL_DYNAMIC_DRAW,
     GL_FALSE,
     GL_FLOAT,
+    GL_TEXTURE0,
+    GL_TEXTURE1,
+    GL_TEXTURE_2D,
     GL_TRIANGLES,
+    glActiveTexture,
     glBindBuffer,
+    glBindTexture,
     glBindVertexArray,
     glBufferData,
     glClear,
@@ -27,7 +32,8 @@ from OpenGL.GL import (
 
 from config import settings
 from rendering.shader import Shader
-from scene.object3d import identity
+from rendering.shadow_map import ShadowMap
+from scene.object3d import identity, perspective
 
 class Renderer:
     def __init__(self):
@@ -36,6 +42,21 @@ class Renderer:
         self.lamp_shader = Shader(shader_dir / "lamp.vert", shader_dir / "lamp.frag")
         self.ui_shader = Shader(shader_dir / "ui.vert", shader_dir / "ui.frag")
         self.triangle_shader = Shader(shader_dir / "triangle.vert", shader_dir / "triangle.frag")
+        self.depth_shader = Shader(shader_dir / "depth.vert", shader_dir / "depth.frag")
+
+        self.main_shadow = ShadowMap(
+            settings.SHADOW_MAP_SIZE,
+            settings.MAIN_SHADOW_FOV,
+            settings.MAIN_SHADOW_NEAR,
+            settings.MAIN_SHADOW_FAR,
+        )
+        self.shadows_dirty = True
+        self.lamp_shadow = ShadowMap(
+            settings.SHADOW_MAP_SIZE,
+            settings.LAMP_SHADOW_FOV,
+            settings.LAMP_SHADOW_NEAR,
+            settings.LAMP_SHADOW_FAR,
+        )
 
         glEnable(GL_DEPTH_TEST)
 
@@ -57,6 +78,30 @@ class Renderer:
         self.triangle_shader.use()
         triangle_mesh.draw()
 
+    def invalidate_shadows(self):
+        self.shadows_dirty = True
+
+    def render_shadow_maps(self, scene, viewport_size):
+        # Lights and furniture are static, so the depth maps only need rebuilding
+        # when something explicitly invalidates them.
+        if not self.shadows_dirty:
+            return
+
+        self.depth_shader.use()
+
+        for shadow_map, light, skip in (
+            (self.main_shadow, scene.point_light, None),
+            (self.lamp_shadow, scene.lamp_light, scene.lamp_fixture),
+        ):
+            shadow_map.begin(light.position)
+            self.depth_shader.set_mat4("lightSpaceMatrix", shadow_map.light_space_matrix)
+            for obj in scene.iter_objects():
+                if obj is not skip:
+                    self._draw_depth(obj, None)
+            shadow_map.end(viewport_size)
+
+        self.shadows_dirty = False
+
     def render_scene(self, scene, camera, aspect_ratio):
         projection = self._perspective(camera.zoom, aspect_ratio, 0.1, 100.0)
         view = camera.get_view_matrix()
@@ -64,6 +109,20 @@ class Renderer:
         self.lighting_shader.use()
         self.lighting_shader.set_mat4("projection", projection)
         self.lighting_shader.set_mat4("view", view)
+        self.lighting_shader.set_mat4("mainLightSpaceMatrix", self.main_shadow.light_space_matrix)
+        self.lighting_shader.set_mat4("lampLightSpaceMatrix", self.lamp_shadow.light_space_matrix)
+        self.lighting_shader.set_vec3("groutColor", settings.GROUT_COLOR)
+        self.lighting_shader.set_float("groutWidth", settings.GROUT_WIDTH)
+        self.lighting_shader.set_float("tileBevel", settings.TILE_BEVEL)
+
+        self.lighting_shader.set_int("mainShadowMap", 0)
+        self.lighting_shader.set_int("lampShadowMap", 1)
+        glActiveTexture(GL_TEXTURE0)
+        glBindTexture(GL_TEXTURE_2D, self.main_shadow.texture)
+        glActiveTexture(GL_TEXTURE1)
+        glBindTexture(GL_TEXTURE_2D, self.lamp_shadow.texture)
+        glActiveTexture(GL_TEXTURE0)
+
         self._apply_lights(scene, camera)
 
         for obj in scene.iter_objects():
@@ -95,6 +154,8 @@ class Renderer:
             self.lighting_shader.set_vec3("objectColor", obj.material.color)
             self.lighting_shader.set_float("specularStrength", obj.material.specular_strength)
             self.lighting_shader.set_float("shininess", obj.material.shininess)
+            self.lighting_shader.set_int("useTiles", 1 if obj.material.tiled else 0)
+            self.lighting_shader.set_float("tileSize", obj.material.tile_size)
             obj.mesh.draw()
 
         for child in obj.children:
@@ -102,6 +163,15 @@ class Renderer:
 
     def _draw_recursive(self, obj, parent_matrix):
         self.draw_object(obj, parent_matrix)
+
+    def _draw_depth(self, obj, parent_matrix):
+        model = obj.get_model_matrix(parent_matrix)
+        if obj.mesh is not None:
+            self.depth_shader.set_mat4("model", model)
+            obj.mesh.draw()
+
+        for child in obj.children:
+            self._draw_depth(child, model)
 
     def _apply_lights(self, scene, camera):
         self.lighting_shader.set_vec3("viewPos", camera.position)
@@ -143,14 +213,7 @@ class Renderer:
         self.lighting_shader.set_vec3("spotLight.specular", s.specular)
 
     def _perspective(self, fov_degrees, aspect_ratio, near_plane, far_plane):
-        f = 1.0 / math.tan(math.radians(fov_degrees) / 2.0)
-        matrix = np.zeros((4, 4), dtype=np.float32)
-        matrix[0, 0] = f / aspect_ratio
-        matrix[1, 1] = f
-        matrix[2, 2] = (far_plane + near_plane) / (near_plane - far_plane)
-        matrix[2, 3] = (2.0 * far_plane * near_plane) / (near_plane - far_plane)
-        matrix[3, 2] = -1.0
-        return matrix
+        return perspective(fov_degrees, aspect_ratio, near_plane, far_plane)
 
     def _draw_ui_shape(self, vertices, color, screen_size):
         data = np.array(vertices, dtype=np.float32)

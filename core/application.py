@@ -102,7 +102,8 @@ class Application:
             settings.SPOT_LIGHT_DIFFUSE,
             settings.SPOT_LIGHT_SPECULAR,
         )
-        scene.add_emissive(Lamp(self.cube_mesh))
+        scene.lamp_fixture = table_lamp
+        scene.add_emissive(Lamp(self.cylinder_mesh))
         scene.add_emissive(table_lamp.bulb)
         return scene
 
@@ -186,10 +187,13 @@ class Application:
             self.camera_controller.end_look_drag()
 
     def _render(self):
-        self.renderer.clear()
         if self.show_triangle:
+            self.renderer.clear()
             self.renderer.render_triangle(self.triangle_mesh)
             return
+
+        self.renderer.render_shadow_maps(self.scene, (self.window.width, self.window.height))
+        self.renderer.clear()
 
         aspect_ratio = self.window.width / float(self.window.height)
         self.renderer.render_scene(self.scene, self.camera, aspect_ratio)
