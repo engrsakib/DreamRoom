@@ -1,0 +1,13 @@
+OpenGL DreamRoom
+------------------------
+Controls:
+W A S D - Move
+Left Drag Joystick - Walk Around
+Right Drag Joystick - Look Around
+[-] [+] - Zoom Out / Zoom In
+ESC - Exit
+T - Toggle Triangle Test
+GL_VENDOR   : Intel
+GL_RENDERER : Intel(R) UHD Graphics 770
+GL_VERSION  : 3.3.0 - Build 32.0.101.6987
+GLSL        : 3.30 - Build 32.0.101.6987

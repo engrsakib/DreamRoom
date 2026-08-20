@@ -10,9 +10,12 @@ from lighting.directional_light import DirectionalLight
 from lighting.point_light import PointLight
 from lighting.spot_light import SpotLight
 from objects.bed import Bed
+from objects.coffee_cup import CoffeeCup
 from objects.lamp import Lamp
+from objects.reading_table import ReadingTable
 from objects.room import Room
-from objects.table import Table
+from objects.table_lamp import TableLamp
+from objects.tea_table import TeaTable
 from rendering.mesh import Mesh
 from rendering.renderer import Renderer
 from scene.scene import Scene
@@ -45,6 +48,8 @@ class Application:
         self.camera_controller = CameraControllerUI()
         self.renderer = Renderer()
         self.cube_mesh = Mesh.create_cube()
+        self.cylinder_mesh = Mesh.create_cylinder()
+        self.frustum_mesh = Mesh.create_frustum()
         self.triangle_mesh = Mesh.create_triangle()
         self.scene = self._build_scene()
 
@@ -56,9 +61,14 @@ class Application:
 
     def _build_scene(self):
         scene = Scene()
+        table_lamp = TableLamp(self.cylinder_mesh, self.frustum_mesh)
+
         scene.add(Room(self.cube_mesh))
         scene.add(Bed(self.cube_mesh))
-        scene.add(Table(self.cube_mesh))
+        scene.add(ReadingTable(self.cube_mesh))
+        scene.add(table_lamp)
+        scene.add(TeaTable(self.cube_mesh))
+        scene.add(CoffeeCup(self.cube_mesh, self.cylinder_mesh))
 
         scene.directional_light = DirectionalLight(
             settings.DIR_LIGHT_DIRECTION,
@@ -73,6 +83,13 @@ class Application:
             settings.POINT_LIGHT_DIFFUSE,
             settings.POINT_LIGHT_SPECULAR,
         )
+        scene.lamp_light = PointLight(
+            settings.LAMP_LIGHT_POSITION,
+            *settings.LAMP_LIGHT_ATTENUATION,
+            settings.LAMP_LIGHT_AMBIENT,
+            settings.LAMP_LIGHT_DIFFUSE,
+            settings.LAMP_LIGHT_SPECULAR,
+        )
         scene.spot_light = SpotLight(
             tuple(float(v) for v in self.camera.position),
             tuple(float(v) for v in self.camera.front),
@@ -83,7 +100,8 @@ class Application:
             settings.SPOT_LIGHT_DIFFUSE,
             settings.SPOT_LIGHT_SPECULAR,
         )
-        scene.lamp = Lamp(self.cube_mesh)
+        scene.add_emissive(Lamp(self.cube_mesh))
+        scene.add_emissive(table_lamp.bulb)
         return scene
 
     def run(self):

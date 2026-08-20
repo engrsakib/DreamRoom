@@ -43,6 +43,7 @@ uniform float specularStrength;
 uniform float shininess;
 uniform DirLight dirLight;
 uniform PointLight pointLight;
+uniform PointLight lampLight;
 uniform SpotLight spotLight;
 
 vec3 calculateDirectionalLight(DirLight light, vec3 normal, vec3 viewDir, vec3 materialSpecular)
@@ -110,6 +111,7 @@ void main()
 
     vec3 result = calculateDirectionalLight(dirLight, norm, viewDir, materialSpecular);
     result += calculatePointLight(pointLight, norm, FragPos, viewDir, materialSpecular);
+    result += calculatePointLight(lampLight, norm, FragPos, viewDir, materialSpecular);
     result += calculateSpotLight(spotLight, norm, FragPos, viewDir, materialSpecular);
 
     FragColor = vec4(result, 1.0);

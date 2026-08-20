@@ -69,13 +69,14 @@ class Renderer:
         for obj in scene.iter_objects():
             self._draw_recursive(obj, None)
 
-        if scene.lamp is not None:
+        if scene.emissive_objects:
             self.lamp_shader.use()
             self.lamp_shader.set_mat4("projection", projection)
             self.lamp_shader.set_mat4("view", view)
-            self.lamp_shader.set_vec3("color", scene.lamp.material.color)
-            self.lamp_shader.set_mat4("model", scene.lamp.get_model_matrix())
-            scene.lamp.mesh.draw()
+            for emissive in scene.emissive_objects:
+                self.lamp_shader.set_vec3("color", emissive.material.color)
+                self.lamp_shader.set_mat4("model", emissive.get_model_matrix())
+                emissive.mesh.draw()
 
     def render_ui_elements(self, elements, screen_size):
         glDisable(GL_DEPTH_TEST)
@@ -119,6 +120,15 @@ class Renderer:
         self.lighting_shader.set_vec3("pointLight.ambient", p.ambient)
         self.lighting_shader.set_vec3("pointLight.diffuse", p.diffuse)
         self.lighting_shader.set_vec3("pointLight.specular", p.specular)
+
+        l = scene.lamp_light
+        self.lighting_shader.set_vec3("lampLight.position", l.position)
+        self.lighting_shader.set_float("lampLight.constant", l.constant)
+        self.lighting_shader.set_float("lampLight.linear", l.linear)
+        self.lighting_shader.set_float("lampLight.quadratic", l.quadratic)
+        self.lighting_shader.set_vec3("lampLight.ambient", l.ambient)
+        self.lighting_shader.set_vec3("lampLight.diffuse", l.diffuse)
+        self.lighting_shader.set_vec3("lampLight.specular", l.specular)
 
         s = scene.spot_light
         self.lighting_shader.set_vec3("spotLight.position", s.position)
