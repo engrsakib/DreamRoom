@@ -29,7 +29,6 @@ from config import settings
 from rendering.shader import Shader
 from scene.object3d import identity
 
-
 class Renderer:
     def __init__(self):
         shader_dir = Path(__file__).resolve().parent.parent / "shaders"
@@ -78,16 +77,10 @@ class Renderer:
             self.lamp_shader.set_mat4("model", scene.lamp.get_model_matrix())
             scene.lamp.mesh.draw()
 
-    def render_camera_buttons(self, button_rects, screen_size):
+    def render_ui_elements(self, elements, screen_size):
         glDisable(GL_DEPTH_TEST)
-        for name, rect in button_rects.items():
-            x, y, width, height = rect
-            outer = self._rect_vertices(x, y, width, height)
-            inner = self._rect_vertices(x + 4.0, y + 4.0, width - 8.0, height - 8.0)
-            arrow = self._arrow_vertices(name, rect)
-            self._draw_ui_shape(outer, settings.BUTTON_BORDER_COLOR, screen_size)
-            self._draw_ui_shape(inner, settings.BUTTON_FILL_COLOR, screen_size)
-            self._draw_ui_shape(arrow, settings.BUTTON_ARROW_COLOR, screen_size)
+        for element in elements:
+            self._draw_ui_shape(element["vertices"], element["color"], screen_size)
         glEnable(GL_DEPTH_TEST)
 
     def draw_object(self, obj, parent_matrix=None):
@@ -159,23 +152,3 @@ class Renderer:
         glBufferData(GL_ARRAY_BUFFER, data.nbytes, data, GL_DYNAMIC_DRAW)
         glDrawArrays(GL_TRIANGLES, 0, len(data) // 2)
 
-    def _rect_vertices(self, x, y, width, height):
-        return [x, y, x + width, y, x + width, y + height, x, y, x + width, y + height, x, y + height]
-
-    def _arrow_vertices(self, direction, rect):
-        x, y, width, height = rect
-        center_x = x + width * 0.5
-        center_y = y + height * 0.5
-        if direction == "UP":
-            points = [(center_x, y + height * 0.24), (x + width * 0.28, y + height * 0.64), (x + width * 0.72, y + height * 0.64)]
-        elif direction == "DOWN":
-            points = [(center_x, y + height * 0.76), (x + width * 0.28, y + height * 0.36), (x + width * 0.72, y + height * 0.36)]
-        elif direction == "LEFT":
-            points = [(x + width * 0.24, center_y), (x + width * 0.64, y + height * 0.28), (x + width * 0.64, y + height * 0.72)]
-        else:
-            points = [(x + width * 0.76, center_y), (x + width * 0.36, y + height * 0.28), (x + width * 0.36, y + height * 0.72)]
-
-        vertices = []
-        for px, py in points:
-            vertices.extend([px, py])
-        return vertices

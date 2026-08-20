@@ -41,28 +41,49 @@ class Camera:
         return self._look_at(self.position, self.position + self.front, self.up)
 
     def process_keyboard(self, direction, delta_time):
-        velocity = self.movement_speed * delta_time
-
         if direction == "FORWARD":
-            self.position += self.front * velocity
+            self.move_analog(0.0, 1.0, delta_time)
         elif direction == "BACKWARD":
-            self.position -= self.front * velocity
+            self.move_analog(0.0, -1.0, delta_time)
         elif direction == "LEFT":
-            self.position -= self.right * velocity
+            self.move_analog(-1.0, 0.0, delta_time)
         elif direction == "RIGHT":
-            self.position += self.right * velocity
+            self.move_analog(1.0, 0.0, delta_time)
+
+    def move_analog(self, joystick_x, joystick_y, delta_time):
+        horizontal_front = np.array([self.front[0], 0.0, self.front[2]], dtype=np.float32)
+        horizontal_right = np.array([self.right[0], 0.0, self.right[2]], dtype=np.float32)
+
+        horizontal_front = _normalize(horizontal_front)
+        horizontal_right = _normalize(horizontal_right)
+
+        movement = horizontal_right * joystick_x + horizontal_front * joystick_y
+        magnitude = min(1.0, float(np.linalg.norm([joystick_x, joystick_y])))
+
+        if np.linalg.norm(movement) == 0.0 or magnitude == 0.0:
+            return
+
+        movement = _normalize(movement)
+        self.position += movement * self.movement_speed * delta_time * magnitude
 
     def process_mouse_movement(self, xoffset, yoffset, constrain_pitch=True):
         xoffset *= self.mouse_sensitivity
         yoffset *= self.mouse_sensitivity
-        self.process_look_step(xoffset, yoffset, constrain_pitch)
+        self.rotate(xoffset, yoffset, constrain_pitch)
 
-    def process_look_step(self, yaw_offset=0.0, pitch_offset=0.0, constrain_pitch=True):
+    def rotate(self, yaw_offset=0.0, pitch_offset=0.0, constrain_pitch=True):
         self.yaw += yaw_offset
         self.pitch += pitch_offset
         if constrain_pitch:
             self.pitch = max(-89.0, min(89.0, self.pitch))
         self._update_camera_vectors()
+
+    def process_look_step(self, yaw_offset=0.0, pitch_offset=0.0, constrain_pitch=True):
+        self.rotate(yaw_offset, pitch_offset, constrain_pitch)
+
+    def adjust_zoom(self, zoom_delta):
+        self.zoom += zoom_delta
+        self.zoom = max(settings.CAMERA_MIN_FOV, min(settings.CAMERA_MAX_FOV, self.zoom))
 
     def _update_camera_vectors(self):
         yaw_radians = math.radians(self.yaw)

@@ -5,7 +5,9 @@ class InputManager:
     def __init__(self):
         self.keys_down = set()
         self.keys_pressed = set()
+        self.mouse_buttons_down = set()
         self.mouse_buttons_pressed = set()
+        self.mouse_buttons_released = set()
         self.cursor_position = (0.0, 0.0)
 
     def attach(self, window):
@@ -24,7 +26,11 @@ class InputManager:
         _ = mods
         self.cursor_position = glfw.get_cursor_pos(window)
         if action == glfw.PRESS:
+            self.mouse_buttons_down.add(button)
             self.mouse_buttons_pressed.add(button)
+        elif action == glfw.RELEASE:
+            self.mouse_buttons_down.discard(button)
+            self.mouse_buttons_released.add(button)
 
     def is_key_down(self, key):
         return key in self.keys_down
@@ -35,6 +41,12 @@ class InputManager:
     def is_mouse_button_pressed(self, button):
         return button in self.mouse_buttons_pressed
 
+    def is_mouse_button_down(self, button):
+        return button in self.mouse_buttons_down
+
+    def is_mouse_button_released(self, button):
+        return button in self.mouse_buttons_released
+
     def get_mouse_position(self, window):
         self.cursor_position = glfw.get_cursor_pos(window)
         return self.cursor_position
@@ -42,3 +54,4 @@ class InputManager:
     def end_frame(self):
         self.keys_pressed.clear()
         self.mouse_buttons_pressed.clear()
+        self.mouse_buttons_released.clear()
