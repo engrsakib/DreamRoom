@@ -2,8 +2,8 @@ from config import settings
 from rendering.material import Material
 from scene.object3d import Object3D
 
-LAMP_X = 6.0
-LAMP_Z = -1.85
+LAMP_X = settings.LAMP_LIGHT_POSITION[0]
+LAMP_Z = settings.LAMP_LIGHT_POSITION[2]
 
 
 class TableLamp(Object3D):

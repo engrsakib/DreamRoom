@@ -1,5 +1,6 @@
 from .bed import Bed
 from .book import Book
+from .chair import Chair
 from .coffee_cup import CoffeeCup
 from .lamp import Lamp
 from .reading_table import ReadingTable

@@ -10,6 +10,7 @@ from lighting.directional_light import DirectionalLight
 from lighting.point_light import PointLight
 from lighting.spot_light import SpotLight
 from objects.bed import Bed
+from objects.chair import Chair
 from objects.coffee_cup import CoffeeCup
 from objects.lamp import Lamp
 from objects.reading_table import ReadingTable
@@ -66,6 +67,7 @@ class Application:
         scene.add(Room(self.cube_mesh))
         scene.add(Bed(self.cube_mesh))
         scene.add(ReadingTable(self.cube_mesh))
+        scene.add(Chair(self.cube_mesh))
         scene.add(table_lamp)
         scene.add(TeaTable(self.cube_mesh))
         scene.add(CoffeeCup(self.cube_mesh, self.cylinder_mesh))
